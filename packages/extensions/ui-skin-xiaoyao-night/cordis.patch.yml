@@ -1,0 +1,4 @@
+# Standalone DSH Web skin bundle. Keep this row unique across the collection.
+- insert:
+    - id: ui-skin-xiaoyao-night
+      name: '@xiaoyao-ai/dsh-client-ui-skin-xiaoyao-night'

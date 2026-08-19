@@ -1,0 +1,22 @@
+{
+  "id": "xiaoyao-night",
+  "name": "夕小瑶 · 星夜研究台",
+  "nameEn": "Xiaoyao Night Research Deck",
+  "author": "夕小瑶科技说",
+  "tagline": "星夜紫 × 霓粉 × 深海黑",
+  "description": "以夕小瑶角色和深色研究台为核心的 DSH Web 长时使用型深色主题，保留功能结构，只替换表现层体验。",
+  "tags": ["xiaoyao", "night", "deepseek", "dark", "research"],
+  "accent": "#ff78c8",
+  "bodyAttr": "data-dsh-xiaoyao-night",
+  "package": "@xiaoyao-ai/dsh-client-ui-skin-xiaoyao-night",
+  "version": "0.1.0",
+  "homepage": "https://github.com/147228/dsh-xiaoyao-skins#xiaoyao-night",
+  "wiring": {
+    "id": "ui-skin-xiaoyao-night",
+    "bundleWired": true
+  },
+  "preview": {
+    "dark": "preview/dark.jpg"
+  },
+  "order": 14
+}

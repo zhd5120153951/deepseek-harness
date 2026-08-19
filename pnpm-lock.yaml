@@ -303,6 +303,27 @@ importers:
       '@deepseek-ai/dsh-workflow-worker-thread':
         specifier: workspace:^
         version: link:../../packages/workflow/workflow-worker-thread
+      '@xiaoyao-ai/dsh-client-ui-skin-black-whale':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-black-whale
+      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-beacon':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-great-wall-beacon
+      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-snow':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-great-wall-snow
+      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-sunrise':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-great-wall-sunrise
+      '@xiaoyao-ai/dsh-client-ui-skin-sky-lab':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-sky-lab
+      '@xiaoyao-ai/dsh-client-ui-skin-xiaoyao':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-ocean
+      '@xiaoyao-ai/dsh-client-ui-skin-xiaoyao-night':
+        specifier: workspace:^
+        version: link:../../packages/extensions/ui-skin-xiaoyao-night
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -4335,6 +4356,20 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
+
+  packages/extensions/ui-skin-black-whale: {}
+
+  packages/extensions/ui-skin-great-wall-beacon: {}
+
+  packages/extensions/ui-skin-great-wall-snow: {}
+
+  packages/extensions/ui-skin-great-wall-sunrise: {}
+
+  packages/extensions/ui-skin-ocean: {}
+
+  packages/extensions/ui-skin-sky-lab: {}
+
+  packages/extensions/ui-skin-xiaoyao-night: {}
 
   packages/feedback/command-feedback:
     devDependencies:
@@ -13355,8 +13390,8 @@ packages:
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
-  media-typer@1.1.0:
-    resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
+  media-typer@1.1.1:
+    resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
 
   merge-descriptors@2.0.0:
@@ -18709,7 +18744,7 @@ snapshots:
 
   mdn-data@2.27.1: {}
 
-  media-typer@1.1.0: {}
+  media-typer@1.1.1: {}
 
   merge-descriptors@2.0.0: {}
 
@@ -19827,7 +19862,7 @@ snapshots:
   type-is@2.1.0:
     dependencies:
       content-type: 2.0.0
-      media-typer: 1.1.0
+      media-typer: 1.1.1
       mime-types: 3.0.2
 
   typebox@1.1.38: {}

@@ -303,27 +303,6 @@ importers:
       '@deepseek-ai/dsh-workflow-worker-thread':
         specifier: workspace:^
         version: link:../../packages/workflow/workflow-worker-thread
-      '@xiaoyao-ai/dsh-client-ui-skin-black-whale':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-black-whale
-      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-beacon':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-great-wall-beacon
-      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-snow':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-great-wall-snow
-      '@xiaoyao-ai/dsh-client-ui-skin-great-wall-sunrise':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-great-wall-sunrise
-      '@xiaoyao-ai/dsh-client-ui-skin-sky-lab':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-sky-lab
-      '@xiaoyao-ai/dsh-client-ui-skin-xiaoyao':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-ocean
-      '@xiaoyao-ai/dsh-client-ui-skin-xiaoyao-night':
-        specifier: workspace:^
-        version: link:../../packages/extensions/ui-skin-xiaoyao-night
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -4356,20 +4335,6 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
-
-  packages/extensions/ui-skin-black-whale: {}
-
-  packages/extensions/ui-skin-great-wall-beacon: {}
-
-  packages/extensions/ui-skin-great-wall-snow: {}
-
-  packages/extensions/ui-skin-great-wall-sunrise: {}
-
-  packages/extensions/ui-skin-ocean: {}
-
-  packages/extensions/ui-skin-sky-lab: {}
-
-  packages/extensions/ui-skin-xiaoyao-night: {}
 
   packages/feedback/command-feedback:
     devDependencies:

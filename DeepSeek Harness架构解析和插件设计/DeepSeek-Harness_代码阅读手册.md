@@ -1,4 +1,4 @@
-# DeepSeek Harness `141eb6fef83422698aef7a981029e843e8161534`：3～5 万行级代码阅读手册
+# DeepSeek Harness `141eb6fef83422698aef7a981029e843e8161534`：代码阅读手册
 
 > 分析基线：commit `141eb6fef83422698aef7a981029e843e8161534`（`dsh@0.1.0-rc.8`）。
 >

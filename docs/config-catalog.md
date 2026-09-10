@@ -2219,6 +2219,40 @@ export interface Config {
 
 Source: [`packages/skill/skill-filesystem/src/index.ts:49`](../packages/skill/skill-filesystem/src/index.ts)
 
+<a id="deepseek-aidsh-skillhub"></a>
+
+## `@deepseek-ai/dsh-skillhub`
+
+Requires: `tools` · `systemPrompt`
+
+```ts config-catalog
+/** Plugin config: marketplace endpoints, install directory, and search bounds. */
+export interface Config {
+  /** SkillHub API root. Defaults to `https://api.skillhub.cn`. */
+  apiBase?: string
+  /** SkillHub web root used for page URLs. Defaults to `https://skillhub.cn`. */
+  webBase?: string
+  /**
+   * Directory skill installs are written to. Defaults to `$DSH_HOME/skills`
+   * (typically `~/.dsh/skills`), the user root `dsh-skill-filesystem` discovers.
+   */
+  skillsDir?: string
+  /** Cooperative deadline (ms) for one upstream request; 3000–120000. Defaults to 20000. */
+  timeoutMs?: number
+  /** Cards in one default `skillhub_search` batch; 1–80. Defaults to 12. */
+  maxResults?: number
+  /** Default sort key for keyword searches. Defaults to `score`. */
+  sortBy?: SortBy
+  /** `user-agent` header sent with upstream requests. */
+  userAgent?: string
+}
+
+/** Sort key accepted by the SkillHub search API and by `skillhub_search`. */
+export type SortBy = 'score' | 'downloads' | 'stars' | 'installs' | 'updated_at'
+```
+
+Source: [`packages/skill/skillhub/src/index.ts:40`](../packages/skill/skillhub/src/index.ts)
+
 <a id="deepseek-aidsh-spill-local"></a>
 
 ## `@deepseek-ai/dsh-spill-local`
@@ -2607,7 +2641,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/core/system-prompt/src/index.ts:242`](../packages/core/system-prompt/src/index.ts)
+Source: [`packages/core/system-prompt/src/index.ts:243`](../packages/core/system-prompt/src/index.ts)
 
 <a id="deepseek-aidsh-terminal-bash"></a>
 

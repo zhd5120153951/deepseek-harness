@@ -45,6 +45,7 @@
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
+| `@deepseek-ai/dsh-skillhub` | `skillhub_install`、`skillhub_list`、`skillhub_search`、`skillhub_uninstall` | `ctx.tools`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | skillhub_* 工具把技能安装进配置的技能目录，该目录默认是 dsh-skill-filesystem 发现的用户根目录，因此安装结果无需重启即可进入技能目录。 |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -2275,3 +2276,109 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 来源：[`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。
+
+<a id="deepseek-aidsh-skillhub"></a>
+
+## `@deepseek-ai/dsh-skillhub`
+
+### `skillhub_install`
+
+在用户选定后，把 SkillHub 技能安装到配置的技能目录。传入 skillhub_search 返回的 slug。不要打印 CLI 命令。成功后，说明技能已安装且新对话可发现。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Skill slug from search, e.g. pdf-ocr-md"
+    },
+    "version": {
+      "type": "string",
+      "description": "Optional exact version such as 1.0.0. Default is latest."
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+来源：[`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_list`
+
+列出 SkillHub 技能目录中已安装的技能。当用户询问已安装哪些技能或要管理本地技能时使用。
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+来源：[`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_search`
+
+搜索或浏览 SkillHub 技能市场并展示可点击的技能卡片。当用户要查找、推荐或浏览技能时，务必调用本工具而不是 web_search、skill-catalog 或 shell 命令。每条用户消息只调用一次。由你提取搜索主题：传入真实关键词（PDF、天气），不要把用户的整句话当 query。省略 query 即浏览热门技能。用户问「还有吗」时复用上一次的 query 并传 offset = 已展示卡片数。卡片出现后，至多用一句短话回复。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Main keyword, e.g. PDF or weather. Optional when category is set or when browsing."
+    },
+    "queries": {
+      "type": "array",
+      "description": "Optional extra keywords/synonyms for this SAME call. Merged into one card group. Do not make extra skillhub_search calls.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "category": {
+      "type": "string",
+      "description": "Optional first-level category: office-efficiency, content-creation, dev-programming, data-analysis, design-media, ai-agent, knowledge-management, business-ops, education, professional, it-ops-security, life-service"
+    },
+    "sortBy": {
+      "type": "string",
+      "description": "score, downloads, stars, installs, updated_at. Default score."
+    },
+    "limit": {
+      "type": "number",
+      "description": "Cards in this batch (1-80). Default 12."
+    },
+    "offset": {
+      "type": "number",
+      "description": "Skip this many already-shown cards when the user wants more."
+    }
+  }
+}
+```
+
+来源：[`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_uninstall`
+
+按 slug 卸载本地已安装技能。只移除配置的技能目录下包含 SKILL.md 的目录。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Installed skill directory name / slug"
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+来源：[`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+skillhub_* 工具把技能安装进配置的技能目录，该目录默认是 dsh-skill-filesystem 发现的用户根目录，因此安装结果无需重启即可进入技能目录。

@@ -41,6 +41,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
+| `@deepseek-ai/dsh-skillhub` | `skillhub_install`, `skillhub_list`, `skillhub_search`, `skillhub_uninstall` | `ctx.tools`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | skillhub_* tools install into the configured skills directory, which defaults to the user root dsh-skill-filesystem discovers, so installs reach the skill catalog without restarts. |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -2267,3 +2268,109 @@ Search the web for current information. Provide 1–4 queries in the required qu
 Source: [`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.
+
+<a id="deepseek-aidsh-skillhub"></a>
+
+## `@deepseek-ai/dsh-skillhub`
+
+### `skillhub_install`
+
+Install a SkillHub skill into the configured skills directory after the user chooses one. Pass the slug from skillhub_search. Do not print CLI commands. After success, say the skill is installed and discoverable by new conversations.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Skill slug from search, e.g. pdf-ocr-md"
+    },
+    "version": {
+      "type": "string",
+      "description": "Optional exact version such as 1.0.0. Default is latest."
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+Source: [`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_list`
+
+List skills already installed in the SkillHub skills directory. Use when the user asks what skills are installed or to manage local skills.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_search`
+
+Search or browse SkillHub, the skill marketplace, and show clickable skill cards. ALWAYS call this instead of web_search, skill-catalog, or shell commands when the user wants to find, recommend, or browse skills. Call EXACTLY ONCE per user message. You extract the search topic: pass a real keyword (PDF, weather), not the user's whole sentence. Omit query to browse popular skills. When the user asks for more, reuse the previous query and pass offset = the number of cards already shown. After cards appear, reply with AT MOST one short sentence.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Main keyword, e.g. PDF or weather. Optional when category is set or when browsing."
+    },
+    "queries": {
+      "type": "array",
+      "description": "Optional extra keywords/synonyms for this SAME call. Merged into one card group. Do not make extra skillhub_search calls.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "category": {
+      "type": "string",
+      "description": "Optional first-level category: office-efficiency, content-creation, dev-programming, data-analysis, design-media, ai-agent, knowledge-management, business-ops, education, professional, it-ops-security, life-service"
+    },
+    "sortBy": {
+      "type": "string",
+      "description": "score, downloads, stars, installs, updated_at. Default score."
+    },
+    "limit": {
+      "type": "number",
+      "description": "Cards in this batch (1-80). Default 12."
+    },
+    "offset": {
+      "type": "number",
+      "description": "Skip this many already-shown cards when the user wants more."
+    }
+  }
+}
+```
+
+Source: [`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+### `skillhub_uninstall`
+
+Uninstall a locally installed skill by slug. Only removes a directory under the configured skills directory that contains SKILL.md.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Installed skill directory name / slug"
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+Source: [`packages/skill/skillhub/src/index.ts`](../packages/skill/skillhub/src/index.ts)
+
+skillhub_* tools install into the configured skills directory, which defaults to the user root dsh-skill-filesystem discovers, so installs reach the skill catalog without restarts.

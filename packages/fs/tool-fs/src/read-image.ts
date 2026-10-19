@@ -83,6 +83,7 @@ const IMAGE_VALUE_SCHEMA = {
 
 /** The structured outcome declared by the `read_image` output schema. */
 export interface ImageReadValue {
+  /** Canonical absolute path in the filesystem provider's execution world. */
   path: string
   image: {
     attachmentId: string
@@ -209,9 +210,7 @@ export function applyReadImageTool(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'read_image',
     description: 'Read a PNG/JPEG/WebP/GIF file and return the image itself. '
-      + 'A path without a file extension is accepted; the format is detected from the file content, so normalized attachment paths can be passed directly without copying or renaming. '
-      + 'Harness validates and downscales large supported images before the next model request, so use this tool directly instead of installing image libraries or creating thumbnails merely to inspect an image. '
-      + 'Independent files may be read concurrently in small batches. Requires the current model to accept image input.',
+      + 'Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.',
     parameters: {
       file_path: { type: 'string', required: true, description: 'Path to the image file, resolved by the filesystem backend.' },
     },
@@ -220,11 +219,20 @@ export function applyReadImageTool(ctx: Context): void {
         type: 'object',
         additionalProperties: false,
         properties: {
-          path: { type: 'string', required: true },
+          path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
           image: IMAGE_VALUE_SCHEMA,
         },
       },
       render: (_args, value) => imageReadContent(value),
+      // Persist the resolved path only. The attachment reference is NOT copied
+      // here: the settled `content` already carries the image block with the
+      // complete reference, so a second copy would keep two records of one fact —
+      // and a `tools/post-execute` hook that legitimately replaces the content
+      // would leave the stale copy behind, showing an image the result no longer
+      // returns. The path needs its own structured record because the content
+      // carries it only as model-facing envelope text, which the client does not
+      // parse.
+      presentationMeta: (_args, value) => ({ path: value.path }),
     },
     // Content-addressed attachment writes are idempotent, so concurrent reads
     // of the same file cannot conflict.
@@ -313,7 +321,7 @@ export function applyReadImageTool(ctx: Context): void {
       }
       ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, exec)
       const value: ImageReadValue = {
-        path: target.displayPath,
+        path: ctx.fs.processPath(target),
         image: {
           attachmentId: ref.attachmentId,
           mediaType: ref.mediaType,

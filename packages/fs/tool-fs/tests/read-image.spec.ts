@@ -6,13 +6,14 @@
  * regression that `read` keeps its text-only contract.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
-import type { CodeRunRequest, CodeRunResult } from '@deepseek-ai/dsh-code-runtime'
+import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
+import type { PtcRunRequest, PtcRunResult } from '@deepseek-ai/dsh-ptc-runtime'
 import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmResolvedModelInfo, Message, StreamChunk } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -36,6 +37,8 @@ import {
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 /** 3x3 red PNG used to trip a tiny configured pixel limit. */
 const PNG_3X3 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAEElEQVR4nGP4z8AAQQxYWACPjgj4kWPEuQAAAABJRU5ErkJggg==', 'base64')
+/** 1x1 red GIF (GIF89a). */
+const GIF_1X1 = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
 
 const testToolSignal = new AbortController().signal
 
@@ -68,12 +71,14 @@ class CatalogAdapter extends LlmAdapter {
 }
 
 /** In-process PTC mode seam fake that invokes the real registry bindings. */
-class FakeRuntime extends CodeRuntime {
+class FakeRuntime extends PtcRuntime {
+  resolve(request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest): import('@deepseek-ai/dsh-ptc-runtime').PtcRunSpec { return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs ?? 120_000 } }
+
   readonly language = 'typescript'
   readonly isolation = 'fake'
-  behavior: (request: CodeRunRequest) => Promise<CodeRunResult> = () => Promise.resolve({ logs: [] })
+  behavior: (request: PtcRunRequest) => Promise<PtcRunResult> = () => Promise.resolve({ logs: [] })
 
-  run(request: CodeRunRequest): Promise<CodeRunResult> {
+  run(request: PtcRunRequest): Promise<PtcRunResult> {
     return this.behavior(request)
   }
 }
@@ -91,6 +96,7 @@ afterEach(async () => {
 })
 
 interface SetupOptions {
+  toolFs?: ToolFs.Config
   models?: LlmModelInfo[]
   resolvedModels?: LlmModelInfo[]
   attachments?: boolean
@@ -101,9 +107,11 @@ interface SetupOptions {
 
 async function setup(options: SetupOptions = {}) {
   const ctx = new Context()
+  onTestFinished(async () => { await ctx.fiber.dispose() })
+  provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime, { mode: options.toolMode ?? 'native' })
-  if (options.toolMode === 'ptc' || options.toolMode === 'both') {
+  if (options.toolMode === 'ptc') {
     await ctx.plugin(FakeRuntime)
   }
   await ctx.plugin(LocalFileSystem, { cwd: dir })
@@ -119,7 +127,7 @@ async function setup(options: SetupOptions = {}) {
       { provider: 'visual', id: 'legacy-model', name: 'Legacy' },
     ], options.resolvedModels))
   }
-  await ctx.plugin(ToolFs)
+  await ctx.plugin(ToolFs, options.toolFs ?? {})
   return ctx
 }
 
@@ -217,7 +225,7 @@ describe('read_image happy path', () => {
     expect(image.attachment.bytes).toBe(PNG_1X1.length)
     expect(image.attachment.name).toBe('red.png')
     expect(image.attachment.attachmentId).toMatch(/^sha256:[0-9a-f]{64}$/)
-    expect(text(result)).toBe(formatImageReadOutput(join(dir, 'red.png'), {
+    expect(text(result)).toBe(formatImageReadOutput(await realpath(join(dir, 'red.png')), {
       attachmentId: image.attachment.attachmentId,
       mediaType: 'image/png',
       bytes: PNG_1X1.length,
@@ -230,6 +238,37 @@ describe('read_image happy path', () => {
     if (attachments === undefined) throw new Error('expected the attachment service')
     const stored = await attachments.readImage(image.attachment)
     expect(Buffer.from(stored.data)).toEqual(PNG_1X1)
+  })
+
+  it('commits a GIF durably and renders the normalized envelope beside an image block', async () => {
+    await writeFile(join(dir, 'red.gif'), GIF_1X1)
+    const ctx = await setup()
+    const result = await readImage(ctx, { file_path: 'red.gif' }, agentOn('vision-model'))
+
+    expect(result.isError).toBe(false)
+    expect(result.content).toHaveLength(2)
+    const image = result.content[1] as { type: string; attachment: ImageAttachmentRef }
+    expect(image.type).toBe('image')
+    // Normalization re-encodes this transparent 1x1 GIF as WebP: the bytes do
+    // not pass through unchanged, only the source file name survives.
+    expect(image.attachment.mediaType).toBe('image/webp')
+    expect(image.attachment.width).toBe(1)
+    expect(image.attachment.height).toBe(1)
+    expect(image.attachment.bytes).toBe(72)
+    expect(image.attachment.name).toBe('red.gif')
+    expect(image.attachment.attachmentId).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(text(result)).toBe(formatImageReadOutput(await realpath(join(dir, 'red.gif')), {
+      attachmentId: image.attachment.attachmentId,
+      mediaType: 'image/webp',
+      bytes: 72,
+      width: 1,
+      height: 1,
+    }))
+
+    const attachments = ctx.get('attachments')
+    if (attachments === undefined) throw new Error('expected the attachment service')
+    const stored = await attachments.readImage(image.attachment)
+    expect(Buffer.from(stored.data).subarray(0, 4).toString()).toBe('RIFF')
   })
 
   it('emits fs/observed for the read image', async () => {
@@ -255,7 +294,7 @@ describe('read_image happy path', () => {
   it('forwards a nested PTC mode image through the outer run_code context', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
     const ctx = await setup({ toolMode: 'ptc' })
-    const runtime = ctx.codeRuntime as FakeRuntime
+    const runtime = ctx.ptcRuntime as FakeRuntime
     runtime.behavior = async (request) => {
       const value = await request.bindings[0]!.functions.read_image!({ file_path: 'red.png' })
       return { logs: [], value }
@@ -264,7 +303,7 @@ describe('read_image happy path', () => {
     const result = await call(ctx, RUN_CODE_NAME, {
       code: 'return await tools.read_image({ file_path: "red.png" })',
       description: 'Read the image through PTC mode',
-    }, agentOn('vision-model'))
+    }, { ...agentOn('vision-model'), ctx })
 
     expect(result.isError).toBe(false)
     expect(result.content.every(block => block.type === 'text')).toBe(true)
@@ -309,7 +348,7 @@ describe('extension-less paths', () => {
     const reread = (second.content[1] as { attachment: ImageAttachmentRef }).attachment
     expect(reread.attachmentId).toBe(ref.attachmentId)
     expect(reread.mediaType).toBe('image/png')
-    expect(text(second)).toContain(`<path>${objectPath}</path>`)
+    expect(text(second)).toContain(`<path>${await realpath(objectPath)}</path>`)
   })
 
   it('reads an ordinary extension-less image file by sniffing its content', async () => {
@@ -475,9 +514,10 @@ describe('argument and service preconditions', () => {
     expect(text(nonImage)).toContain('the .txt extension does not declare a supported image format')
   })
 
-  it('refuses when no attachment service is mounted', async () => {
+  it.each([{}, { toolFs: { read: false, write: false, edit: false } }] satisfies SetupOptions[])
+  ('refuses when no attachment service is mounted: %j', async (config) => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    const ctx = await setup({ attachments: false })
+    const ctx = await setup({ ...config, attachments: false })
     expect(ctx.tools.get('read_image')).toBeUndefined()
     expect(ctx.tools.schemas().map(schema => schema.name)).not.toContain('read_image')
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
@@ -721,8 +761,52 @@ describe('image admission failures', () => {
 })
 
 describe('registration surface', () => {
+  it('registers only read_image without text guidance', async () => {
+    const ctx = await setup({ toolFs: { read: false, write: false, edit: false } })
+    try {
+      expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['read_image'])
+      expect((await ctx.systemPrompt.assemble()).sections.some(section => section.name.startsWith('tool:'))).toBe(false)
+      await writeFile(join(dir, 'red.png'), PNG_1X1)
+      const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
+      expect(result.isError).toBe(false)
+      expect(result.content.some(block => block.type === 'image')).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('omits read_image while an attachment store is mounted when readImage is false', async () => {
+    const ctx = await setup({ toolFs: { readImage: false } })
+    expect(ctx.tools.schemas().map(tool => tool.name).sort()).toEqual(['edit', 'read', 'write'])
+    expect(ctx.tools.get('read_image')).toBeUndefined()
+    expect((await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))).isError).toBe(true)
+  })
+
+  it('withdraws and restores image-only registration with the attachment store', async () => {
+    const ctx = new Context()
+    try {
+      provideWorkingDirectoryFixture(ctx)
+      await ctx.plugin(SystemPrompt)
+      await ctx.plugin(ToolRuntime)
+      await ctx.plugin(LocalFileSystem, { cwd: dir })
+      const attachment = await ctx.plugin(LocalAttachmentStore, { dshHome: home })
+      const plugin = await ctx.plugin(ToolFs, { read: false, write: false, edit: false })
+      const names = () => ctx.tools.schemas().map(tool => tool.name).sort()
+      expect(names()).toEqual(['read_image'])
+      await attachment.dispose()
+      expect(names()).toEqual([])
+      await ctx.plugin(LocalAttachmentStore, { dshHome: home })
+      expect(names()).toEqual(['read_image'])
+      await plugin.dispose()
+      expect(names()).toEqual([])
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('withdraws read_image when the tool-fs fiber or the attachment store is disposed (HMR safety)', async () => {
     const ctx = new Context()
+    provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'native' })
     await ctx.plugin(LocalFileSystem, { cwd: dir })
@@ -775,5 +859,40 @@ describe('read keeps its text-only contract', () => {
     expect(txt.isError).toBe(false)
     expect(text(txt)).toContain('1: hello')
     expect(text(txt)).toContain('<type>file</type>')
+  })
+})
+
+describe('image result presentation', () => {
+  /** A canonical committed reference, shaped like a real saveImage outcome. */
+  const REF = {
+    attachmentId: `sha256:${'a'.repeat(64)}`,
+    mediaType: 'image/png' as const,
+    bytes: 24_588,
+    width: 1496,
+    height: 260,
+    name: 'card.png',
+  }
+  const VALUE = { path: '/w/app/shots/card.png', image: REF }
+
+  it('persists the path only, leaving the reference to the result content', async () => {
+    // The settled content already carries the image block with the complete
+    // reference, so copying it into meta would keep two records of one fact and a
+    // post-execute content replacement would strand the stale copy.
+    const ctx = await setup()
+    const meta = ctx.tools.get('read_image')?.output.presentationMeta?.({ file_path: 'shots/card.png' }, VALUE)
+    expect(meta).toEqual({ path: VALUE.path })
+  })
+
+  it('carries the committed reference in the result content, not in meta', async () => {
+    // Proves the single source of truth on the path a live call actually takes.
+    await writeFile(join(dir, 'red.png'), PNG_1X1)
+    const ctx = await setup()
+    const result = await call(ctx, 'read_image', { file_path: 'red.png' }, agentOn('vision-model'))
+    expect(result.isError).toBe(false)
+    expect(result.meta).toEqual({ path: await realpath(join(dir, 'red.png')) })
+    const image = result.content.find(block => block.type === 'image')
+    expect(image?.attachment.width).toBe(1)
+    expect(image?.attachment.height).toBe(1)
+    expect(image?.attachment.attachmentId).toMatch(/^sha256:/u)
   })
 })
